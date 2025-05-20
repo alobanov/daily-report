@@ -1,42 +1,42 @@
 # Git Daily Report
 
-Скрипт для формирования ежедневного отчёта по git-коммитам пользователя за выбранную дату.
+A script for generating a daily report of user's git commits for a selected date.
 
-## Быстрый старт
+## Quick Start
 
-1. Создайте и активируйте виртуальное окружение:
+1. Create and activate a virtual environment:
    ```bash
    deactivate && rm -rf venv && python3.12 -m venv venv && source venv/bin/activate && python --version
    ```
-2. Установите зависимости:
+2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-3. Создайте файл `.env` и добавьте в него ваш OpenAI API ключ:
+3. Create a `.env` file and add your OpenAI API key:
    ```env
-   OPENAI_API_KEY=sk-...ваш_ключ...
+   OPENAI_API_KEY=sk-...your_key...
    ```
-4. Запустите скрипт:
+4. Run the script:
    ```bash
    python git_daily_report.py --date YYYY-MM-DD
    ```
-   Если не указать дату, будет выбран вчерашний день.
+   If no date is specified, yesterday's date will be used.
 
-## Пример использования
+## Usage Example
 ```bash
 python git_daily_report.py --date 2024-06-01
 ```
 
-## Дополнительные аргументы
-- `--repo` - путь к git-репозиторию (по умолчанию — текущая директория)
-- `--email` - email автора коммитов (по умолчанию — коммиты текущего пользователя)
-- `--use-gpt` - отправить промпт в ChatGPT API и вывести результат (требуется переменная окружения OPENAI_API_KEY или файл .env)
+## Additional Arguments
+- `--repo` - path to git repository (default is current directory)
+- `--email` - author's email for commits (default is current user's commits)
+- `--use-gpt` - send prompt to ChatGPT API and display result (requires OPENAI_API_KEY environment variable or .env file)
 
-## Требования
+## Requirements
 - Python 3.7+
-- git (должен быть установлен и настроен user.name)
-- openai, python-dotenv (для отправки запросов в ChatGPT API и загрузки переменных окружения)
+- git (must be installed and configured with user.name)
+- openai, python-dotenv (for sending requests to ChatGPT API and loading environment variables)
 
-## Описание
-- Скрипт группирует коммиты по веткам и формирует структурированный отчёт.
-- Для корректной работы требуется, чтобы git был настроен и вы находились в git-репозитории.
+## Description
+- The script groups commits by branches and generates a structured report.
+- For proper operation, git must be configured and you must be in a git repository.
