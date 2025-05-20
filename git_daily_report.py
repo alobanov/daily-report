@@ -4,6 +4,7 @@ from collections import defaultdict
 import argparse
 import sys
 import os
+import openai
 
 def get_git_username(repo_path=None):
     try:
@@ -66,6 +67,11 @@ def main():
         type=str,
         help="Email автора коммитов. По умолчанию — коммиты текущего пользователя."
     )
+    parser.add_argument(
+        "--use-gpt",
+        action="store_true",
+        help="Отправить промпт в ChatGPT API и вывести результат."
+    )
     args = parser.parse_args([arg for arg in sys.argv[1:] if not arg.startswith("-f")])  # игнорим Jupyter-аргументы
 
     # Определение даты
@@ -90,7 +96,7 @@ def main():
         print(f"Нет коммитов пользователя '{author}' за {target_date.date()}.")
         return
     else:
-        print(f"""
+        prompt = f"""
 🔧 Сформируй отчёт о проделанной работе за указанную дату в следующем формате:
 
 Вчера:
@@ -103,7 +109,16 @@ def main():
 • Если в ветке develop есть коммиты с префиксом MOB-, это означает, что соответствующая задача была завершена и смержена — упомяни это в отчёте как завершённую работу.
 
 📥 На вход подаётся список веток и коммитов — сформируй на его основе осмысленный, лаконичный и структурированный отчёт.
-        """)
+        """
+        if args.use_gpt:
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            print(response.choices[0].message.content)
+        else:
+            print(prompt)
 
     # Получаем develop-коммиты отдельно
     develop_commits = set()
