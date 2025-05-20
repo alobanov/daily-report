@@ -3,44 +3,48 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import argparse
 import sys
+import os
 
-def get_git_username():
+def get_git_username(repo_path=None):
     try:
-        return subprocess.check_output(["git", "config", "user.name"]).decode().strip()
+        cmd = ["git", "config", "user.name"]
+        if repo_path:
+            cmd = ["git", "-C", repo_path, "config", "user.name"]
+        return subprocess.check_output(cmd).decode().strip()
     except subprocess.CalledProcessError:
         print("❌ Git user.name не настроен. Выполните: git config user.name 'Ваше имя'")
         exit(1)
 
-def get_commit_details(commit_hash):
+def get_commit_details(commit_hash, repo_path=None):
     try:
-        output = subprocess.check_output([
-            "git", "show", "-s",
-            "--pretty=format:• %h %ad %s",
-            "--date=short",
-            commit_hash
-        ]).decode()
+        cmd = ["git", "show", "-s", "--pretty=format:• %h %ad %s", "--date=short", commit_hash]
+        if repo_path:
+            cmd = ["git", "-C", repo_path, "show", "-s", "--pretty=format:• %h %ad %s", "--date=short", commit_hash]
+        output = subprocess.check_output(cmd).decode()
         return output
     except subprocess.CalledProcessError:
         return None
 
-def get_commits_by_author(since, until, author):
+def get_commits_by_author(since, until, author, repo_path=None, email=None):
     try:
-        output = subprocess.check_output([
-            "git", "log", "--all",
-            f"--since={since}",
-            f"--until={until}",
-            f"--author={author}",
-            "--pretty=format:%H"
-        ]).decode()
+        cmd = ["git", "log", "--all", f"--since={since}", f"--until={until}", f"--author={author}", "--pretty=format:%H"]
+        if repo_path:
+            cmd = ["git", "-C", repo_path, "log", "--all", f"--since={since}", f"--until={until}", f"--author={author}", "--pretty=format:%H"]
+        if email:
+            cmd = ["git", "log", "--all", f"--since={since}", f"--until={until}", f"--author={email}", "--pretty=format:%H"]
+            if repo_path:
+                cmd = ["git", "-C", repo_path, "log", "--all", f"--since={since}", f"--until={until}", f"--author={email}", "--pretty=format:%H"]
+        output = subprocess.check_output(cmd).decode()
         return list(sorted(set(filter(None, output.strip().split("\n")))))
     except subprocess.CalledProcessError:
         return []
 
-def get_commit_branches(commit_hash):
+def get_commit_branches(commit_hash, repo_path=None):
     try:
-        branches = subprocess.check_output([
-            "git", "branch", "--contains", commit_hash
-        ]).decode().strip().split("\n")
+        cmd = ["git", "branch", "--contains", commit_hash]
+        if repo_path:
+            cmd = ["git", "-C", repo_path, "branch", "--contains", commit_hash]
+        branches = subprocess.check_output(cmd).decode().strip().split("\n")
         return [b.strip().lstrip("* ") for b in branches if b.strip()]
     except subprocess.CalledProcessError:
         return []
@@ -51,6 +55,16 @@ def main():
         "--date",
         type=str,
         help="Дата в формате YYYY-MM-DD (например, 2025-05-14). По умолчанию — вчера."
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        help="Путь к git-репозиторию. По умолчанию — текущая директория."
+    )
+    parser.add_argument(
+        "--email",
+        type=str,
+        help="Email автора коммитов. По умолчанию — коммиты текущего пользователя."
     )
     args = parser.parse_args([arg for arg in sys.argv[1:] if not arg.startswith("-f")])  # игнорим Jupyter-аргументы
 
@@ -68,8 +82,9 @@ def main():
     since = target_date.isoformat()
     until = (target_date + timedelta(days=1)).isoformat()
 
-    author = get_git_username()
-    commit_hashes = get_commits_by_author(since, until, author)
+    repo_path = args.repo
+    author = get_git_username(repo_path)
+    commit_hashes = get_commits_by_author(since, until, author, repo_path, args.email)
 
     if not commit_hashes:
         print(f"Нет коммитов пользователя '{author}' за {target_date.date()}.")
@@ -93,13 +108,14 @@ def main():
     # Получаем develop-коммиты отдельно
     develop_commits = set()
     try:
-        output = subprocess.check_output([
-            "git", "log", "develop",
-            f"--since={since}",
-            f"--until={until}",
-            f"--author={author}",
-            "--pretty=format:%H"
-        ]).decode()
+        cmd = ["git", "log", "develop", f"--since={since}", f"--until={until}", f"--author={author}", "--pretty=format:%H"]
+        if repo_path:
+            cmd = ["git", "-C", repo_path, "log", "develop", f"--since={since}", f"--until={until}", f"--author={author}", "--pretty=format:%H"]
+        if args.email:
+            cmd = ["git", "log", "develop", f"--since={since}", f"--until={until}", f"--author={args.email}", "--pretty=format:%H"]
+            if repo_path:
+                cmd = ["git", "-C", repo_path, "log", "develop", f"--since={since}", f"--until={until}", f"--author={args.email}", "--pretty=format:%H"]
+        output = subprocess.check_output(cmd).decode()
         develop_commits = set(filter(None, output.strip().split("\n")))
     except subprocess.CalledProcessError:
         pass
@@ -110,7 +126,7 @@ def main():
     if develop_commits:
         print("🔀 Ветка: develop")
         for commit in develop_commits:
-            details = get_commit_details(commit)
+            details = get_commit_details(commit, repo_path)
             if details:
                 print(details)
         print()
@@ -120,7 +136,7 @@ def main():
     for commit in commit_hashes:
         if commit in develop_commits:
             continue
-        branches = get_commit_branches(commit)
+        branches = get_commit_branches(commit, repo_path)
         for branch in branches:
             if branch != "develop":
                 branch_commits[branch].append(commit)
@@ -130,7 +146,7 @@ def main():
         if commits:
             print(f"🔀 Ветка: {branch}")
             for commit in commits:
-                details = get_commit_details(commit)
+                details = get_commit_details(commit, repo_path)
                 if details:
                     print(details)
             print()
