@@ -114,6 +114,9 @@ def main():
 📥 На вход подаётся список веток и коммитов — сформируй на его основе осмысленный, лаконичный и структурированный отчёт.
         """
         if args.use_gpt:
+            print("\n📤 Отправляю промпт в ChatGPT API:\n")
+            print(prompt)
+            print("\n📥 Ответ от ChatGPT API:\n")
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
