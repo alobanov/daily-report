@@ -16,7 +16,7 @@ def get_git_username(repo_path=None):
             cmd = ["git", "-C", repo_path, "config", "user.name"]
         return subprocess.check_output(cmd).decode().strip()
     except subprocess.CalledProcessError:
-        print("❌ Git user.name не настроен. Выполните: git config user.name 'Ваше имя'")
+        print("❌ Git user.name is not configured. Run: git config user.name 'Your Name'")
         exit(1)
 
 def get_commit_details(commit_hash, repo_path=None):
@@ -58,39 +58,39 @@ def load_prompt_template():
         with open("prompt_template.txt", "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        print("❌ Файл prompt_template.txt не найден")
+        print("❌ File prompt_template.txt not found")
         exit(1)
 
 def main():
-    parser = argparse.ArgumentParser(description="Показать git-коммиты за указанную дату (по умолчанию — за вчера).")
+    parser = argparse.ArgumentParser(description="Show git commits for the specified date (default is yesterday).")
     parser.add_argument(
         "--date",
         type=str,
-        help="Дата в формате YYYY-MM-DD (например, 2025-05-14). По умолчанию — вчера."
+        help="Date in YYYY-MM-DD format (e.g., 2025-05-14). Default is yesterday."
     )
     parser.add_argument(
         "--repo",
         type=str,
-        help="Путь к git-репозиторию. По умолчанию — текущая директория."
+        help="Path to git repository. Default is current directory."
     )
     parser.add_argument(
         "--email",
         type=str,
-        help="Email автора коммитов. По умолчанию — коммиты текущего пользователя."
+        help="Author email for commits. Default is current user's commits."
     )
     parser.add_argument(
         "--use-gpt",
         action="store_true",
-        help="Отправить промпт в ChatGPT API и вывести результат."
+        help="Send prompt to ChatGPT API and display the result."
     )
-    args = parser.parse_args([arg for arg in sys.argv[1:] if not arg.startswith("-f")])  # игнорим Jupyter-аргументы
+    args = parser.parse_args([arg for arg in sys.argv[1:] if not arg.startswith("-f")])  # ignore Jupyter arguments
 
-    # Определение даты
+    # Date determination
     if args.date:
         try:
             target_date = datetime.strptime(args.date, "%Y-%m-%d")
         except ValueError:
-            print("❌ Неверный формат даты. Используйте YYYY-MM-DD.")
+            print("❌ Invalid date format. Use YYYY-MM-DD.")
             return
     else:
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -104,10 +104,10 @@ def main():
     commit_hashes = get_commits_by_author(since, until, author, repo_path, args.email)
 
     if not commit_hashes:
-        print(f"Нет коммитов пользователя '{author}' за {target_date.date()}.")
+        print(f"No commits by user '{author}' for {target_date.date()}.")
         return
 
-    # Получаем develop-коммиты отдельно
+    # Get develop commits separately
     develop_commits = set()
     try:
         cmd = ["git", "log", "develop", f"--since={since}", f"--until={until}", f"--author={author}", "--pretty=format:%H"]
@@ -122,19 +122,19 @@ def main():
     except subprocess.CalledProcessError:
         pass
 
-    # Собираем информацию о коммитах
+    # Collect commit information
     commits_info = []
     
-    # Сначала собираем develop-коммиты
+    # First collect develop commits
     if develop_commits:
-        commits_info.append("🔀 Ветка: develop")
+        commits_info.append("🔀 Branch: develop")
         for commit in develop_commits:
             details = get_commit_details(commit, repo_path)
             if details:
                 commits_info.append(details)
         commits_info.append("")
 
-    # Остальные коммиты, не входящие в develop
+    # Other commits not in develop
     branch_commits = defaultdict(list)
     for commit in commit_hashes:
         if commit in develop_commits:
@@ -147,22 +147,22 @@ def main():
 
     for branch, commits in branch_commits.items():
         if commits:
-            commits_info.append(f"🔀 Ветка: {branch}")
+            commits_info.append(f"🔀 Branch: {branch}")
             for commit in commits:
                 details = get_commit_details(commit, repo_path)
                 if details:
                     commits_info.append(details)
             commits_info.append("")
 
-    # Формируем промпт с информацией о коммитах
+    # Form prompt with commit information
     commits_text = "\n".join(commits_info)
     prompt_template = load_prompt_template()
     prompt = prompt_template.format(commits_text=commits_text)
 
     if args.use_gpt:
-        print("\n📤 Отправляю промпт в ChatGPT API:\n")
+        print("\n📤 Sending prompt to ChatGPT API:\n")
         print(prompt)
-        print("\n📥 Ответ от ChatGPT API:\n")
+        print("\n📥 Response from ChatGPT API:\n")
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
