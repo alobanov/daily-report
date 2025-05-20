@@ -5,6 +5,9 @@ import argparse
 import sys
 import os
 import openai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_git_username(repo_path=None):
     try:
