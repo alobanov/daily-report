@@ -188,21 +188,34 @@ class ReportGenerator:
 
     def collect_commits_info(self, author: str) -> List[str]:
         """Collect information about all commits."""
-        since = self.config.target_date.isoformat()
-        until = (self.config.target_date + timedelta(days=1)).isoformat()
+        # Expand search range to several days before and after
+        # to ensure we capture all commits, then filter by exact date
+        search_start = self.config.target_date - timedelta(days=2)
+        search_end = self.config.target_date + timedelta(days=2)
+        
+        since = search_start.isoformat()
+        until = search_end.isoformat()
         target_date_str = self.config.target_date.strftime("%Y-%m-%d")
+        
+        logger.info(f"Searching for commits from {since} to {until}")
+        logger.info(f"Target date: {target_date_str}")
         
         commit_hashes = self.git_client.get_commits_by_author(since, until, author)
         if not commit_hashes:
-            logger.info(f"No commits by user '{author}' for {self.config.target_date.date()}.")
+            logger.info(f"No commits by user '{author}' in search range.")
             return []
+
+        logger.info(f"Found {len(commit_hashes)} total commits in search range")
 
         # Filter commits to only include those from the target date
         filtered_commits = []
         for commit in commit_hashes:
             commit_date = self.git_client.get_commit_date(commit)
+            logger.debug(f"Commit {commit[:8]} date: {commit_date}")
             if commit_date == target_date_str:
                 filtered_commits.append(commit)
+
+        logger.info(f"Filtered to {len(filtered_commits)} commits for target date")
 
         if not filtered_commits:
             logger.info(f"No commits by user '{author}' for {self.config.target_date.date()}.")
