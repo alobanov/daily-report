@@ -134,6 +134,18 @@ class GitClient:
         except subprocess.CalledProcessError:
             return set()
 
+    def get_commit_date(self, commit_hash: str) -> Optional[str]:
+        """Get the commit date in YYYY-MM-DD format."""
+        try:
+            return self._run_command([
+                "show", "-s",
+                "--pretty=format:%ad",
+                "--date=short",
+                commit_hash
+            ])
+        except subprocess.CalledProcessError:
+            return None
+
 class ChatGPTClient:
     """Client for ChatGPT API operations."""
 
@@ -178,13 +190,29 @@ class ReportGenerator:
         """Collect information about all commits."""
         since = self.config.target_date.isoformat()
         until = (self.config.target_date + timedelta(days=1)).isoformat()
+        target_date_str = self.config.target_date.strftime("%Y-%m-%d")
         
         commit_hashes = self.git_client.get_commits_by_author(since, until, author)
         if not commit_hashes:
             logger.info(f"No commits by user '{author}' for {self.config.target_date.date()}.")
             return []
 
+        # Filter commits to only include those from the target date
+        filtered_commits = []
+        for commit in commit_hashes:
+            commit_date = self.git_client.get_commit_date(commit)
+            if commit_date == target_date_str:
+                filtered_commits.append(commit)
+
+        if not filtered_commits:
+            logger.info(f"No commits by user '{author}' for {self.config.target_date.date()}.")
+            return []
+
         develop_commits = self.git_client.get_develop_commits(since, until, author)
+        # Filter develop commits by date too
+        develop_commits = {commit for commit in develop_commits 
+                          if self.git_client.get_commit_date(commit) == target_date_str}
+        
         commits_info = []
 
         # Collect develop commits
@@ -198,7 +226,7 @@ class ReportGenerator:
 
         # Collect other commits
         branch_commits: Dict[str, List[str]] = defaultdict(list)
-        for commit in commit_hashes:
+        for commit in filtered_commits:
             if commit in develop_commits:
                 continue
             branches = self.git_client.get_commit_branches(commit)
